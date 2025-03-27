@@ -7,6 +7,7 @@ import { UsersRepository } from './users.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
@@ -31,13 +32,29 @@ export class UsersService {
     return new UserResponseDto(user);
   }
 
-  async findOne(id: string): Promise<UserResponseDto> {
+  async findOne(id: string): Promise<UserResponseDto | null> {
     const user = await this.usersRepository.findOneById(id);
+    return !user ? null : new UserResponseDto(user);
+  }
+
+  async findOneByEmail(email: string): Promise<UserResponseDto | null> {
+    const user = await this.usersRepository.findOneByEmail(email);
+    return !user ? null : new UserResponseDto(user);
+  }
+
+  async findOneByUsername(username: string): Promise<UserResponseDto | null> {
+    const user = await this.usersRepository.findOneByUsername(username);
+    return !user ? null : new UserResponseDto(user);
+  }
+
+  async findOneByEmailWithPassword(email: string): Promise<User|null> {
+    const user = await this.usersRepository.findOneByEmailWithPassword(email);
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return new UserResponseDto(user);
+    return user;
   }
+
 
   async update(
     id: string,
