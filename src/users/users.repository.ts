@@ -26,11 +26,16 @@ export class UsersRepository {
   async findOneByUsername(username: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { username } });
   }
+  
+  async findOneByEmailWithPassword(email: string): Promise<User | null> {
+    return this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.email = :email', { email })
+      .getOne();
+  }
 
-  async update(
-    id: string,
-    updateData: Partial<User>,
-  ): Promise<User | null> {
+  async update(id: string, updateData: Partial<User>): Promise<User | null> {
     await this.userRepository.update(id, updateData);
     return this.findOneById(id);
   }

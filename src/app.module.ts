@@ -7,6 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
 import { UserSeedService } from './database/seeds/user.seed';
 import { ConsoleModule } from 'nestjs-console';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ConsoleModule } from 'nestjs-console';
     TypeOrmModule.forRoot(typeormConfig),
     TypeOrmModule.forFeature([User]),
     UsersModule,
+    AuthModule
   ],
   providers: [SeedCommand, UserSeedService],
 })
