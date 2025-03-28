@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module';
 import { UserSeedService } from './database/seeds/user.seed';
 import { ConsoleModule } from 'nestjs-console';
 import { AuthModule } from './auth/auth.module';
+import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
@@ -19,7 +20,8 @@ import { AuthModule } from './auth/auth.module';
     TypeOrmModule.forRoot(typeormConfig),
     TypeOrmModule.forFeature([User]),
     UsersModule,
-    AuthModule
+    AuthModule,
+    WalletModule
   ],
   providers: [SeedCommand, UserSeedService],
 })
