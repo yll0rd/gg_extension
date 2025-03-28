@@ -8,11 +8,17 @@ import {
   BeforeUpdate,
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { OneToMany } from 'typeorm';
+import { Wallet } from 'src/wallet/entities/wallet.entity';
+
 
 @Entity()
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @OneToMany(() => Wallet, (wallet) => wallet.user)
+  wallets: Wallet[];
 
   @Column({ unique: true })
   username: string;

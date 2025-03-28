@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module';
 import { UserSeedService } from './database/seeds/user.seed';
 import { ConsoleModule } from 'nestjs-console';
 import { AuthModule } from './auth/auth.module';
+import { WalletModule } from './wallet/wallet.module';
 import { ConversionModule } from './conversion/conversion.module';
 import { MessagesModule } from './messages/messages.module';
 import { ConversationModule } from './conversation/conversation.module';
@@ -23,6 +24,7 @@ import { ConversationModule } from './conversation/conversation.module';
     TypeOrmModule.forFeature([User]),
     UsersModule,
     AuthModule,
+    WalletModule
     ConversionModule,
     MessagesModule,
     ConversationModule,
