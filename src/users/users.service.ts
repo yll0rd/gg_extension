@@ -55,7 +55,6 @@ export class UsersService {
     return user;
   }
 
-
   async update(
     id: string,
     updateUserDto: UpdateUserDto,

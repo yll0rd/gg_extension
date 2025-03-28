@@ -26,7 +26,7 @@ export class UsersRepository {
   async findOneByUsername(username: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { username } });
   }
-  
+
   async findOneByEmailWithPassword(email: string): Promise<User | null> {
     return this.userRepository
       .createQueryBuilder('user')
