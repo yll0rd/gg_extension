@@ -20,14 +20,6 @@ export class Message {
   @Column('text')
   content: string;
 
-  @Column('uuid')
-  @Index()
-  senderId: string;
-
-  @Column('uuid')
-  @Index()
-  conversationId: string;
-
   @Column({
     type: 'enum',
     enum: MessageType,
@@ -35,10 +27,19 @@ export class Message {
   })
   type: MessageType;
 
+  @Column('uuid')
+  @Index('idx_message_sender')
+  senderId: string;
+
+  @Column('uuid')
+  @Index('idx_message_conversation')
+  conversationId: string;
+
   @CreateDateColumn({ type: 'timestamp with time zone' })
-  @Index()
+  @Index('idx_message_timestamp')
   timestamp: Date;
 
+  // Optional: Additional metadata for media or token transfer
   @Column('jsonb', { nullable: true })
-  metadata?: Record<string, any>;
+  metadata: Record<string, any>;
 }
