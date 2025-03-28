@@ -37,6 +37,7 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^10.4.15",
+    "@nestjs/serve-static": "^5.0.3",
     "@nestjs/swagger": "^7.3.0",
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^10.4.15",
@@ -52,9 +53,11 @@
     "reflect-metadata": "^0.2.2",
     "rimraf": "^5.0.5",
     "rxjs": "^7.8.1",
-    "starknet": "^6.24.1",
     "socket.io": "^4.8.1",
-    "typeorm": "^0.3.21"
+    "starknet": "^6.24.1",
+    "typeorm": "^0.3.21",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
