@@ -6,6 +6,9 @@ import {
   Param,
   Patch,
   Delete,
+  ParseIntPipe,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -23,6 +26,7 @@ import {
   ApiConflictResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express/multer/interceptors';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -96,6 +100,31 @@ export class UsersController {
     summary: 'Update user',
     description: 'Updates user details for the specified user ID',
   })
+  @Patch(':id/profile')
+  async updateProfile(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateProfileDto: UpdateUserDto,
+  ) {
+    return await this.usersService.updateProfile(id, updateProfileDto);
+  }
+
+  @Patch(':id/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.usersService.uploadAvatar(id, file);
+  }
+
+  @Patch(':id/settings')
+  async updateSettings(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() settingsDto: any,
+  ) {
+    return this.usersService.updateSettings(id, settingsDto);
+  }
+
   @ApiParam({
     name: 'id',
     description: 'User ID (UUID format)',

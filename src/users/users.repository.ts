@@ -5,6 +5,8 @@ import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersRepository {
+  findOne: any;
+  save: any;
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,

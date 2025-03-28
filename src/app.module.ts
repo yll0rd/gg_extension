@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module';
 import { UserSeedService } from './database/seeds/user.seed';
 import { ConsoleModule } from 'nestjs-console';
 import { AuthModule } from './auth/auth.module';
+import { ConversionModule } from './conversion/conversion.module';
 import { MessagesModule } from './messages/messages.module';
 
 @Module({
@@ -21,6 +22,7 @@ import { MessagesModule } from './messages/messages.module';
     TypeOrmModule.forFeature([User]),
     UsersModule,
     AuthModule,
+    ConversionModule,
     MessagesModule,
   ],
   providers: [SeedCommand, UserSeedService],
