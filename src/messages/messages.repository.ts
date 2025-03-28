@@ -1,4 +1,3 @@
-// src/messages/repositories/message.repository.ts
 import { Injectable } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { Message, MessageType } from './entities/message.entity';
@@ -29,14 +28,22 @@ export class MessageRepository extends Repository<Message> {
 
   async findMessagesByConversation(
     conversationId: string,
+    page = 1,
     limit = 50,
-    offset = 0,
   ): Promise<Message[]> {
     return this.find({
       where: { conversationId },
       order: { timestamp: 'DESC' },
       take: limit,
-      skip: offset,
+      skip: (page - 1) * limit,
+      relations: ['sender'], // Added to match services method
+    });
+  }
+
+  async findMessageById(messageId: string): Promise<Message | null> {
+    return this.findOne({
+      where: { id: messageId },
+      relations: ['sender'], // Added to match services method
     });
   }
 }

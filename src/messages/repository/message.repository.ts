@@ -1,9 +1,11 @@
-import { EntityRepository, Repository } from 'typeorm';
-import { Logger } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { Repository } from 'typeorm';
+import { Injectable, Logger } from '@nestjs/common';
 import { Message } from '../entities/message.entity';
 import { MessageReadReceipt } from '../entities/message-read-receipt.entity';
 
-@EntityRepository(Message)
+@Injectable()
 export class MessageRepository extends Repository<Message> {
   private readonly logger = new Logger('MessageRepository');
 
@@ -25,7 +27,10 @@ export class MessageRepository extends Repository<Message> {
       this.logger.log(`Message created: ${savedMessage.id}`);
       return savedMessage;
     } catch (error) {
-      this.logger.error(`Failed to create message: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create message: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -36,7 +41,9 @@ export class MessageRepository extends Repository<Message> {
         where: { conversationId },
         order: { timestamp: 'ASC' },
       });
-      this.logger.debug(`Found ${messages.length} messages for conversation ${conversationId}`);
+      this.logger.debug(
+        `Found ${messages.length} messages for conversation ${conversationId}`,
+      );
       return messages;
     } catch (error) {
       this.logger.error(
@@ -55,7 +62,10 @@ export class MessageRepository extends Repository<Message> {
       }
       return message;
     } catch (error) {
-      this.logger.error(`Failed to find message ${id}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to find message ${id}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -74,7 +84,10 @@ export class MessageRepository extends Repository<Message> {
       this.logger.log(`Message updated: ${id}`);
       return updatedMessage;
     } catch (error) {
-      this.logger.error(`Failed to update message ${id}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to update message ${id}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -84,7 +97,10 @@ export class MessageRepository extends Repository<Message> {
       await this.delete(id);
       this.logger.log(`Message deleted: ${id}`);
     } catch (error) {
-      this.logger.error(`Failed to delete message ${id}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to delete message ${id}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -94,7 +110,7 @@ export class MessageRepository extends Repository<Message> {
       const conversations = await this.createQueryBuilder('message')
         .select('DISTINCT message.conversationId', 'id')
         .where('message.senderId = :userId', { userId })
-        .orWhere(qb => {
+        .orWhere((qb) => {
           const subQuery = qb
             .subQuery()
             .select('m.conversationId')
@@ -104,7 +120,9 @@ export class MessageRepository extends Repository<Message> {
           return 'message.conversationId IN ' + subQuery;
         })
         .getRawMany();
-      this.logger.debug(`Found ${conversations.length} conversations for user ${userId}`);
+      this.logger.debug(
+        `Found ${conversations.length} conversations for user ${userId}`,
+      );
       return conversations;
     } catch (error) {
       this.logger.error(
@@ -119,7 +137,9 @@ export class MessageRepository extends Repository<Message> {
     try {
       const message = await this.findOneMessage(messageId);
       if (!message) {
-        this.logger.warn(`Cannot mark non-existent message as read: ${messageId}`);
+        this.logger.warn(
+          `Cannot mark non-existent message as read: ${messageId}`,
+        );
         return null;
       }
 

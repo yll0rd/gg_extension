@@ -1,11 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Message } from './entities/message.entity';
-import { CreateMessageDto } from './dto/create-message.dto';
+import { Message } from '../entities/message.entity';
 import { UsersService } from 'src/users/users.service';
-import { UpdateMessageDto } from './dto/update-message.dto';
-import { MessageResponseDto } from './dto/message-response.dto';
+import { CreateMessageDto } from '../dto/create-message.dto';
+import { UpdateMessageDto } from '../dto/update-message.dto';
+import { MessageResponseDto } from '../dtos/messageResponse.dto';
 
 @Injectable()
 export class MessagesService {
