@@ -6,9 +6,11 @@ import {
   Delete,
   Body,
   Param,
+  Query,
 } from '@nestjs/common';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
+import { MessageFilterDto } from './dto/message-filter.dto';
 import { MessagesService } from './providers/messages.service';
 
 @Controller('messages')
@@ -18,6 +20,14 @@ export class MessagesController {
   @Post()
   createMessage(@Body() createMessageDto: CreateMessageDto) {
     return this.messageService.createMessage(createMessageDto);
+  }
+
+  @Get('conversation/:conversationId')
+  findMessagesByConversation(
+    @Param('conversationId') conversationId: string,
+    @Query() filterDto: MessageFilterDto,
+  ) {
+    return this.messageService.findMessages(conversationId, filterDto);
   }
 
   @Get(':id')
