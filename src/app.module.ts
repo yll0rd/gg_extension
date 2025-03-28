@@ -10,6 +10,7 @@ import { ConsoleModule } from 'nestjs-console';
 import { AuthModule } from './auth/auth.module';
 import { ConversionModule } from './conversion/conversion.module';
 import { MessagesModule } from './messages/messages.module';
+import { ConversationModule } from './conversation/conversation.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MessagesModule } from './messages/messages.module';
     AuthModule,
     ConversionModule,
     MessagesModule,
+    ConversationModule,
   ],
   providers: [SeedCommand, UserSeedService],
 })
