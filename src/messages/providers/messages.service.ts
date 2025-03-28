@@ -1,12 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, FindOptionsWhere, Between, Like } from 'typeorm';
 import { Message } from '../entities/message.entity';
 import { UsersService } from 'src/users/users.service';
 import { CreateMessageDto } from '../dto/create-message.dto';
 import { UpdateMessageDto } from '../dto/update-message.dto';
-import { MessageResponseDto } from '../dtos/messageResponse.dto';
+import { MessageResponseDto } from '../dto/message-response.dto';
+import { MessageFilterDto } from '../dto/message-filter.dto';
 
 @Injectable()
 export class MessagesService {
@@ -16,8 +16,10 @@ export class MessagesService {
     private readonly userService: UsersService,
   ) {}
 
-  async createMessage(createMessageDto: CreateMessageDto): Promise<Message> {
-    // Validate sender and conversation
+  async createMessage(
+    createMessageDto: CreateMessageDto,
+  ): Promise<MessageResponseDto> {
+    // Validate sender
     const sender = await this.userService.findOne(createMessageDto.senderId);
     if (!sender) {
       throw new NotFoundException('Sender not found');
@@ -28,34 +30,63 @@ export class MessagesService {
       senderId: sender.id,
     });
 
-    return this.messageRepository.save(message);
+    const savedMessage = await this.messageRepository.save(message);
+    return this.mapToResponseDto(savedMessage);
   }
 
-  async findMessagesByConversation(
+  async findMessages(
     conversationId: string,
-    page = 1,
-    limit = 50,
-  ): Promise<Message[]> {
-    return this.messageRepository.find({
-      where: { conversationId },
+    filterDto: MessageFilterDto,
+  ): Promise<{ messages: MessageResponseDto[]; total: number }> {
+    const {
+      startDate,
+      endDate,
+      type,
+      searchQuery,
+      page = 1,
+      limit = 50,
+    } = filterDto;
+
+    const where: FindOptionsWhere<Message> = { conversationId };
+
+    // Date range filter
+    if (startDate && endDate) {
+      where.timestamp = Between(startDate, endDate);
+    }
+
+    // Type filter
+    if (type) {
+      where.type = type;
+    }
+
+    // Search query filter
+    if (searchQuery) {
+      where.content = Like(`%${searchQuery}%`);
+    }
+
+    const [messages, total] = await this.messageRepository.findAndCount({
+      where,
       order: { timestamp: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
-      relations: ['sender'],
     });
+
+    return {
+      messages: messages.map((message) => this.mapToResponseDto(message)),
+      total,
+    };
   }
 
-  async findMessageById(messageId: string): Promise<Message> {
+  async findMessageById(messageId: string): Promise<MessageResponseDto> {
     const message = await this.messageRepository.findOne({
       where: { id: messageId },
-      relations: ['user'],
     });
 
     if (!message) {
       throw new NotFoundException('Message not found');
     }
 
-    return message;
+    return this.mapToResponseDto(message);
   }
 
   async updateMessage(
@@ -74,7 +105,7 @@ export class MessagesService {
     );
     const savedMessage = await this.messageRepository.save(updatedMessage);
 
-    return savedMessage;
+    return this.mapToResponseDto(savedMessage);
   }
 
   async deleteMessage(messageId: string): Promise<void> {
@@ -83,5 +114,18 @@ export class MessagesService {
     if (result.affected === 0) {
       throw new NotFoundException('Message not found');
     }
+  }
+
+  // Helper method to map Message entity to ResponseDto
+  private mapToResponseDto(message: Message): MessageResponseDto {
+    return {
+      id: message.id,
+      content: message.content,
+      senderId: message.senderId,
+      conversationId: message.conversationId,
+      type: message.type,
+      timestamp: message.timestamp,
+      metadata: message.metadata,
+    };
   }
 }
