@@ -29,6 +29,9 @@ export class User {
   @Column({ nullable: true })
   avatar: string;
 
+  @Column({ type: 'json', nullable: true })
+  settings: Record<string, any>;
+
   @Column({ type: 'text', nullable: true })
   bio: string;
 
