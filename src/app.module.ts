@@ -9,6 +9,8 @@ import { UserSeedService } from './database/seeds/user.seed';
 import { ConsoleModule } from 'nestjs-console';
 import { AuthModule } from './auth/auth.module';
 import { WalletModule } from './wallet/wallet.module';
+import { ConversionModule } from './conversion/conversion.module';
+import { MessagesModule } from './messages/messages.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { WalletModule } from './wallet/wallet.module';
     UsersModule,
     AuthModule,
     WalletModule
+    ConversionModule,
+    MessagesModule,
   ],
   providers: [SeedCommand, UserSeedService],
 })
