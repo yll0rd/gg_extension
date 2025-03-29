@@ -1,0 +1,83 @@
+// src/token/repositories/token.repository.ts
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { TokenTransaction } from '../entities/token-transaction.entity';
+import { QueryTransactionsDto } from '../dto/query-transactions.dto';
+import { TokenType, TransactionStatus } from '../types/token.types';
+import { CreateTokenTransactionDto } from '../dto/create-token-transaction.dto';
+
+@Injectable()
+export class TokenRepository {
+  constructor(
+    @InjectRepository(TokenTransaction)
+    private repository: Repository<TokenTransaction>,
+  ) {}
+
+  /**
+   * Create a new token transaction record
+   */
+  async createTransaction(data: Partial<TokenTransaction>): Promise<TokenTransaction> {
+    const transaction = this.repository.create(data);
+    return this.repository.save(transaction);
+  }
+
+  /**
+   * Find a transaction by ID
+   */
+  async findById(id: string): Promise<TokenTransaction> {
+    return this.repository.findOne({
+      where: { id },
+    });
+  }
+
+  /**
+   * Find a transaction by transaction hash
+   */
+  async findByTransactionHash(hash: string): Promise<TokenTransaction> {
+    return this.repository.findOne({
+      where: { transactionHash: hash },
+    });
+  }
+
+  /**
+   * Update a transaction with new data
+   */
+  async updateTransaction(id: string, data: Partial<TokenTransaction>): Promise<TokenTransaction> {
+    await this.repository.update(id, data);
+    return this.findById(id);
+  }
+
+  /**
+   * Find transactions with filtering and pagination
+   */
+  async findTransactions(query: QueryTransactionsDto): Promise<[TokenTransaction[], number]> {
+    const { 
+      fromAddress, 
+      toAddress, 
+      tokenAddress, 
+      tokenType, 
+      status, 
+      network,
+      limit = 10,
+      page = 1 
+    } = query;
+    
+    const skip = (page - 1) * limit;
+    
+    const queryBuilder = this.repository.createQueryBuilder('tx');
+    
+    if (fromAddress) {
+      queryBuilder.andWhere('tx.fromAddress = :fromAddress', { fromAddress });
+    }
+    
+    if (toAddress) {
+      queryBuilder.andWhere('tx.toAddress = :toAddress', { toAddress });
+    }
+    
+    if (tokenAddress) {
+      queryBuilder.andWhere('tx.tokenAddress = :tokenAddress', { tokenAddress });
+    }
+    
+    if (tokenType) {
+      queryBuilder.andW
