@@ -1,0 +1,106 @@
+// src/token/services/transaction.service.spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import { TransactionService } from './transaction.service';
+import { StarknetService } from './starknet.service';
+import { UserService } from '../../user/services/user.service';
+import { TokenBalanceService } from './token-balance.service';
+import { TokenTransaction } from '../entities/token-transaction.entity';
+import { TokenType, TransactionStatus, Network } from '../types/token.types';
+
+// Mock data
+const mockTransaction = {
+  id: '123e4567-e89b-12d3-a456-426614174000',
+  fromAddress: '0x04a9e147455c8dafae167baaae0f2ef6ed8f6792847fcaa9a8a841a8c03bbee3',
+  toAddress: '0x04d0eb9616c5454f1d842d13b5bedbf1c0c9242129ca7437c0e195c00748e30c',
+  tokenAddress: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
+  tokenType: TokenType.ERC20,
+  amount: '1000000000000000000',
+  tokenId: null,
+  transactionHash: '0x54e35352c9ebc4d9f1e614746d81ef96e11a62e380207137cdd9a0bc71a9f5a',
+  status: TransactionStatus.PENDING,
+  network: Network.MAINNET,
+  blockNumber: null,
+  blockTimestamp: null,
+  gasPrice: null,
+  gasUsed: null,
+  feePaid: null,
+  createdAt: new Date('2023-04-15T10:30:00Z'),
+  updatedAt: new Date('2023-04-15T10:30:00Z'),
+};
+
+const mockTransactionDto = {
+  id: mockTransaction.id,
+  fromAddress: mockTransaction.fromAddress,
+  toAddress: mockTransaction.toAddress,
+  tokenAddress: mockTransaction.tokenAddress,
+  tokenType: mockTransaction.tokenType,
+  amount: mockTransaction.amount,
+  tokenId: mockTransaction.tokenId,
+  transactionHash: mockTransaction.transactionHash,
+  status: mockTransaction.status,
+  network: mockTransaction.network,
+  blockNumber: mockTransaction.blockNumber,
+  blockTimestamp: mockTransaction.blockTimestamp,
+  gasPrice: mockTransaction.gasPrice,
+  gasUsed: mockTransaction.gasUsed,
+  feePaid: mockTransaction.feePaid,
+  createdAt: mockTransaction.createdAt,
+  updatedAt: mockTransaction.updatedAt,
+};
+
+const mockBlockchainTransaction = {
+  transaction_hash: mockTransaction.transactionHash,
+  status: 'ACCEPTED_ON_L2',
+  block_number: 12345678,
+  block_timestamp: 1681554600, // Unix timestamp
+  // Additional blockchain data
+};
+
+// Mock query builder
+const createMockQueryBuilder = () => {
+  const mockQueryBuilder = {
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    getManyAndCount: jest.fn().mockResolvedValue([[mockTransaction], 1]),
+    getMany: jest.fn().mockResolvedValue([mockTransaction]),
+    getCount: jest.fn().mockResolvedValue(1),
+  };
+  return mockQueryBuilder as unknown as SelectQueryBuilder<TokenTransaction>;
+};
+
+// Mock services
+const mockStarknetService = {
+  getTransaction: jest.fn().mockResolvedValue(mockBlockchainTransaction),
+  connect: jest.fn(),
+};
+
+const mockUserService = {};
+
+const mockTokenBalanceService = {
+  getTokenBalance: jest.fn(),
+};
+
+describe('TransactionService', () => {
+  let service: TransactionService;
+  let transactionRepository: Repository<TokenTransaction>;
+  let starknetService: StarknetService;
+  let tokenBalanceService: TokenBalanceService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        TransactionService,
+        {
+          provide: getRepositoryToken(TokenTransaction),
+          useValue: {
+            findOne: jest.fn().mockResolvedValue(mockTransaction),
+            find: jest.fn().mockResolvedValue([mockTransaction]),
+            findAndCount: jest.fn().mockResolvedValue([[mockTransaction], 1]),
+            save: jest.fn().mockResolvedValue(mockTransaction),
+            update: jest.
