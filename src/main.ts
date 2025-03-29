@@ -4,6 +4,7 @@ import { AppModule } from "./app.module"
 import { AuthExceptionFilter } from "./filters/auth-exception.filter"
 import { ValidationPipe } from "@nestjs/common"
 import { LoggingService } from "./logging/services/logging.service"
+import { createValidationPipe } from './common/pipes/validation.pipe';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -18,6 +19,7 @@ async function bootstrap() {
   // Global filters and pipes
   app.useGlobalFilters(new AuthExceptionFilter())
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+  //app.useGlobalPipes(createValidationPipe());
 
   // Swagger configuration
   const config = new DocumentBuilder()

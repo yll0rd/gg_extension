@@ -13,10 +13,12 @@ import { ConversionModule } from "./conversion/conversion.module"
 import { MessagesModule } from "./messages/messages.module"
 import { ConversationModule } from "./conversation/conversation.module"
 import { LoggingModule } from "./logging/logging.module"
+import { CommonModule } from './common/common.module';
+
 
 @Module({
   imports: [
-    ConsoleModule,
+    CommonModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ".env",
