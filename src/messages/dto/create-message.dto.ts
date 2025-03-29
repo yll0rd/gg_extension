@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsEnum, IsOptional, IsJSON } from 'class-validator';
+import { IsString, IsUUID, IsEnum, IsOptional, IsObject } from 'class-validator';
 import { MessageType } from '../entities/message.entity';
 
 export class CreateMessageDto {
@@ -16,6 +16,6 @@ export class CreateMessageDto {
   type?: MessageType = MessageType.TEXT;
 
   @IsOptional()
-  @IsJSON()
+  @IsObject()
   metadata?: Record<string, any>;
 }

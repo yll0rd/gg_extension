@@ -13,6 +13,7 @@ import { ConversionModule } from "./conversion/conversion.module"
 import { MessagesModule } from "./messages/messages.module"
 import { ConversationModule } from "./conversation/conversation.module"
 import { LoggingModule } from "./logging/logging.module"
+import { ReadReceiptModule } from './read-receipt/read-receipt.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { LoggingModule } from "./logging/logging.module"
     ConversionModule,
     MessagesModule,
     ConversationModule,
+    ReadReceiptModule,
   ],
   providers: [SeedCommand, UserSeedService],
 })

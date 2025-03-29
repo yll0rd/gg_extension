@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, Between, Like } from 'typeorm';
+import { Repository, FindOptionsWhere, Between, Like, In, Not } from 'typeorm';
 import { Message } from '../entities/message.entity';
 import { UsersService } from 'src/users/users.service';
 import { CreateMessageDto } from '../dto/create-message.dto';
 import { UpdateMessageDto } from '../dto/update-message.dto';
 import { MessageResponseDto } from '../dto/message-response.dto';
 import { MessageFilterDto } from '../dto/message-filter.dto';
+import { MarkReadDto } from '../dto/mark-read.dto';
 
 @Injectable()
 export class MessagesService {
@@ -19,7 +20,6 @@ export class MessagesService {
   async createMessage(
     createMessageDto: CreateMessageDto,
   ): Promise<MessageResponseDto> {
-    // Validate sender
     const sender = await this.userService.findOne(createMessageDto.senderId);
     if (!sender) {
       throw new NotFoundException('Sender not found');
@@ -28,6 +28,7 @@ export class MessagesService {
     const message = this.messageRepository.create({
       ...createMessageDto,
       senderId: sender.id,
+      readByUsers: [],
     });
 
     const savedMessage = await this.messageRepository.save(message);
@@ -45,23 +46,25 @@ export class MessagesService {
       searchQuery,
       page = 1,
       limit = 50,
+      isRead,
     } = filterDto;
 
     const where: FindOptionsWhere<Message> = { conversationId };
 
-    // Date range filter
     if (startDate && endDate) {
       where.timestamp = Between(startDate, endDate);
     }
 
-    // Type filter
     if (type) {
       where.type = type;
     }
 
-    // Search query filter
     if (searchQuery) {
       where.content = Like(`%${searchQuery}%`);
+    }
+
+    if (isRead !== undefined) {
+      where.readByUsers = isRead ? Not([]) : In([[]]);
     }
 
     const [messages, total] = await this.messageRepository.findAndCount({
@@ -98,11 +101,7 @@ export class MessagesService {
       throw new NotFoundException(`Message with ID ${id} not found`);
     }
 
-    // Merge the existing message with the update DTO
-    const updatedMessage = this.messageRepository.merge(
-      message,
-      updateMessageDto,
-    );
+    const updatedMessage = this.messageRepository.merge(message, updateMessageDto);
     const savedMessage = await this.messageRepository.save(updatedMessage);
 
     return this.mapToResponseDto(savedMessage);
@@ -116,7 +115,27 @@ export class MessagesService {
     }
   }
 
-  // Helper method to map Message entity to ResponseDto
+  async markMessageAsRead(markReadDto: MarkReadDto): Promise<MessageResponseDto> {
+    const { messageId, userId } = markReadDto;
+
+    const message = await this.messageRepository.findOne({ where: { id: messageId } });
+
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
+
+    if (!message.readByUsers) {
+      message.readByUsers = [];
+    }
+
+    if (!message.readByUsers.includes(userId)) {
+      message.readByUsers.push(userId);
+      await this.messageRepository.save(message);
+    }
+
+    return this.mapToResponseDto(message);
+  }
+
   private mapToResponseDto(message: Message): MessageResponseDto {
     return {
       id: message.id,
@@ -126,6 +145,7 @@ export class MessagesService {
       type: message.type,
       timestamp: message.timestamp,
       metadata: message.metadata,
+      readByUsers: message.readByUsers || [],
     };
   }
 }
