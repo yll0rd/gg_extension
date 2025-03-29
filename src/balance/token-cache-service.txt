@@ -1,0 +1,149 @@
+// src/common/services/cache.service.ts
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import Redis from 'ioredis';
+
+@Injectable()
+export class CacheService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(CacheService.name);
+  private client: Redis;
+
+  constructor(private readonly configService: ConfigService) {}
+
+  /**
+   * Initialize Redis client on module init
+   */
+  async onModuleInit() {
+    try {
+      const redisHost = this.configService.get<string>('REDIS_HOST', 'localhost');
+      const redisPort = this.configService.get<number>('REDIS_PORT', 6379);
+      const redisPassword = this.configService.get<string>('REDIS_PASSWORD', '');
+      const redisDb = this.configService.get<number>('REDIS_DB', 0);
+      
+      this.client = new Redis({
+        host: redisHost,
+        port: redisPort,
+        password: redisPassword || undefined,
+        db: redisDb,
+        retryStrategy: (times) => {
+          const delay = Math.min(times * 50, 2000);
+          return delay;
+        },
+      });
+      
+      this.client.on('error', (error) => {
+        this.logger.error(`Redis error: ${error.message}`);
+      });
+      
+      this.logger.log('Cache service initialized successfully');
+    } catch (error) {
+      this.logger.error(`Failed to initialize cache service: ${error.message}`);
+    }
+  }
+
+  /**
+   * Cleanup Redis connection on module destroy
+   */
+  async onModuleDestroy() {
+    if (this.client) {
+      await this.client.quit();
+      this.logger.log('Cache service connection closed');
+    }
+  }
+
+  /**
+   * Get a value from cache
+   */
+  async get<T>(key: string): Promise<T | null> {
+    try {
+      const data = await this.client.get(key);
+      if (!data) return null;
+      
+      return JSON.parse(data) as T;
+    } catch (error) {
+      this.logger.error(`Cache get error for key ${key}: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Set a value in cache with TTL in seconds
+   */
+  async set(key: string, value: any, ttl?: number): Promise<void> {
+    try {
+      const serialized = JSON.stringify(value);
+      
+      if (ttl) {
+        await this.client.set(key, serialized, 'EX', ttl);
+      } else {
+        await this.client.set(key, serialized);
+      }
+    } catch (error) {
+      this.logger.error(`Cache set error for key ${key}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete a key from cache
+   */
+  async del(key: string): Promise<void> {
+    try {
+      await this.client.del(key);
+    } catch (error) {
+      this.logger.error(`Cache del error for key ${key}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete multiple keys matching a pattern
+   */
+  async delByPattern(pattern: string): Promise<void> {
+    try {
+      // Use Redis SCAN to find keys matching the pattern
+      let cursor = '0';
+      let keys: string[] = [];
+      
+      do {
+        const [newCursor, matchedKeys] = await this.client.scan(
+          cursor,
+          'MATCH',
+          pattern,
+          'COUNT',
+          100
+        );
+        
+        cursor = newCursor;
+        keys = keys.concat(matchedKeys);
+      } while (cursor !== '0');
+      
+      if (keys.length > 0) {
+        await this.client.del(...keys);
+        this.logger.debug(`Deleted ${keys.length} keys matching pattern ${pattern}`);
+      }
+    } catch (error) {
+      this.logger.error(`Cache delByPattern error for pattern ${pattern}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Check if a key exists
+   */
+  async exists(key: string): Promise<boolean> {
+    try {
+      const result = await this.client.exists(key);
+      return result === 1;
+    } catch (error) {
+      this.logger.error(`Cache exists error for key ${key}: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Get TTL of a key in seconds
+   */
+  async ttl(key: string): Promise<number> {
+    try {
+      return await this.client.ttl(key);
+    } catch (error) {
+      this.logger.error(`Cache ttl error for key ${key}: ${error.message}`);
+      return -2; //
