@@ -114,6 +114,7 @@ export class UserTokenEntity {
   balances: TokenBalanceEntity[];
 
   @CreateDateColumn({ name: 'created_at' })
+  @Index()
   createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
