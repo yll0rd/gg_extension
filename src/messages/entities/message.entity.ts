@@ -4,7 +4,9 @@ import {
   Column,
   Index,
   CreateDateColumn,
+  OneToMany,
 } from 'typeorm';
+import { MessageReadReceipt } from './message-read-receipt.entity';
 
 export enum MessageType {
   TEXT = 'text',
@@ -29,6 +31,7 @@ export class Message {
 
   @Column('uuid')
   @Index('idx_message_sender')
+  @Index()
   senderId: string;
 
   @Column('uuid')
@@ -39,7 +42,12 @@ export class Message {
   @Index('idx_message_timestamp')
   timestamp: Date;
 
-  // Optional: Additional metadata for media or token transfer
   @Column('jsonb', { nullable: true })
   metadata: Record<string, any>;
+
+  @Column({ type: 'uuid', array: true, default: [] }) // Add this line
+  readByUsers: string[]; // List of user IDs who have read the message
+
+  @OneToMany(() => MessageReadReceipt, (receipt) => receipt.message)
+  readReceipts: MessageReadReceipt[];
 }

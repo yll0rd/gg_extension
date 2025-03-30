@@ -1,0 +1,441 @@
+{
+	"info": {
+		"_postman_id": "9432c85c-a271-4b8d-a474-c4890286b856",
+		"name": "Gasless gossip api",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "32461231"
+	},
+	"item": [
+		{
+			"name": "Create a new notification.",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"{\r",
+							"  \"title\": \"New Notification\",\r",
+							"  \"message\": \"You have a new message\",\r",
+							"  \"userId\": \"uuid-of-user\",\r",
+							"  \"type\": \"INFO\", \r",
+							"  \"priority\": \"HIGH\"\r",
+							"}\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"{\r",
+							"  \"id\": \"uuid-of-notification\",\r",
+							"  \"title\": \"New Notification\",\r",
+							"  \"message\": \"You have a new message\",\r",
+							"  \"userId\": \"uuid-of-user\",\r",
+							"  \"type\": \"INFO\",\r",
+							"  \"priority\": \"HIGH\",\r",
+							"  \"isRead\": false,\r",
+							"  \"isDismissed\": false,\r",
+							"  \"createdAt\": \"2025-03-29T12:00:00Z\"\r",
+							"}\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"title\": \"New Notification\",\r\n  \"message\": \"You have a new message\",\r\n  \"userId\": \"uuid-of-user\",\r\n  \"type\": \"INFO\", \r\n  \"priority\": \"HIGH\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/notification",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"notification"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Fetch all notifications.",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"[\r",
+							"  {\r",
+							"    \"id\": \"uuid-of-notification\",\r",
+							"    \"title\": \"New Notification\",\r",
+							"    \"message\": \"You have a new message\",\r",
+							"    \"userId\": \"uuid-of-user\",\r",
+							"    \"type\": \"INFO\",\r",
+							"    \"priority\": \"HIGH\",\r",
+							"    \"isRead\": false,\r",
+							"    \"isDismissed\": false,\r",
+							"    \"createdAt\": \"2025-03-29T12:00:00Z\"\r",
+							"  }\r",
+							"]\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/api/notification",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"notification"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Fetch a specific notification by its ID.",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"{\r",
+							"  \"id\": \"uuid-of-notification\",\r",
+							"  \"title\": \"New Notification\",\r",
+							"  \"message\": \"You have a new message\",\r",
+							"  \"userId\": \"uuid-of-user\",\r",
+							"  \"type\": \"INFO\",\r",
+							"  \"priority\": \"HIGH\",\r",
+							"  \"isRead\": false,\r",
+							"  \"isDismissed\": false,\r",
+							"  \"createdAt\": \"2025-03-29T12:00:00Z\"\r",
+							"}\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/api/notification/:id",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"notification",
+						":id"
+					],
+					"variable": [
+						{
+							"key": "id",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Mark a notification as read.",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"{\r",
+							"  \"id\": \"uuid-of-notification\",\r",
+							"  \"isRead\": true\r",
+							"}\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"isRead\": true\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/notification/:id/read",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"notification",
+						":id",
+						"read"
+					],
+					"variable": [
+						{
+							"key": "id",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Fetch notifications for a specific user.",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"[\r",
+							"  {\r",
+							"    \"id\": \"uuid-of-notification\",\r",
+							"    \"title\": \"New Notification\",\r",
+							"    \"message\": \"You have a new message\",\r",
+							"    \"userId\": \"uuid-of-user\",\r",
+							"    \"type\": \"INFO\",\r",
+							"    \"priority\": \"HIGH\",\r",
+							"    \"isRead\": false,\r",
+							"    \"isDismissed\": false,\r",
+							"    \"createdAt\": \"2025-03-29T12:00:00Z\"\r",
+							"  }\r",
+							"]\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/api/notifications/user/:userId",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"notifications",
+						"user",
+						":userId"
+					],
+					"variable": [
+						{
+							"key": "userId",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Dismiss a notification (hide it from the user but keep it in the database).",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"{\r",
+							"  \"id\": \"uuid-of-notification\",\r",
+							"  \"isDismissed\": true\r",
+							"}\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"isDismissed\": true\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/notifications/:id/dismiss",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"notifications",
+						":id",
+						"dismiss"
+					],
+					"variable": [
+						{
+							"key": "id",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": " Delete a notification permanently.",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"{\r",
+							"  \"message\": \"Notification deleted successfully\"\r",
+							"}\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/api/notifications/:id",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"notifications",
+						":id"
+					],
+					"variable": [
+						{
+							"key": "id",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": " Get the number of unread notifications for a specific user.",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"{\r",
+							"  \"userId\": \"uuid-of-user\",\r",
+							"  \"unreadCount\": 5\r",
+							"}\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/api/notifications/user/:userId/count",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"notifications",
+						"user",
+						":userId",
+						"count"
+					],
+					"variable": [
+						{
+							"key": "userId",
+							"value": ""
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

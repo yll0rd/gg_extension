@@ -8,4 +8,5 @@ export class MessageResponseDto {
   type: MessageType;
   timestamp: Date;
   metadata?: Record<string, any>;
+  readByUsers?: string[]; // List of users who have read the message
 }

@@ -1,0 +1,436 @@
+// src/token/services/transaction-sync.service.ts
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { ConfigService } from '@nestjs/config';
+import { v4 as uuidv4 } from 'uuid';
+import { StarknetService } from './starknet.service';
+import { TransactionService } from './transaction.service';
+import { CacheService } from '../../common/services/cache.service';
+import { SyncTransactionsDto } from '../dto/sync-transactions.dto';
+import { TransactionStatus } from '../types/token.types';
+import { handleRetry } from '../../common/utils/retry.utils';
+
+interface SyncJob {
+  id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress: number;
+  message: string;
+  startTime: Date;
+  endTime?: Date;
+  params: SyncTransactionsDto;
+  results?: {
+    processed: number;
+    updated: number;
+    failed: number;
+    newTransactions: number;
+  };
+  error?: string;
+}
+
+@Injectable()
+export class TransactionSyncService implements OnModuleInit {
+  private readonly logger = new Logger(TransactionSyncService.name);
+  private readonly activeJobs: Map<string, SyncJob> = new Map();
+  private readonly JOB_EXPIRY = 24 * 60 * 60; // 24 hours in seconds
+  private readonly MAX_RETRIES = 3;
+  private readonly BATCH_SIZE = 50; // Number of transactions to process in one batch
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly starknetService: StarknetService,
+    private readonly transactionService: TransactionService,
+    private readonly cacheService: CacheService,
+  ) {}
+
+  /**
+   * Initialize the service
+   */
+  async onModuleInit() {
+    try {
+      // Ensure Starknet connection is established
+      await this.starknetService.connect();
+      this.logger.log('TransactionSyncService initialized successfully');
+    } catch (error) {
+      this.logger.error(`Failed to initialize TransactionSyncService: ${error.message}`);
+    }
+  }
+
+  /**
+   * Scheduled job to update pending transactions
+   * Runs every 5 minutes by default
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async updatePendingTransactions() {
+    try {
+      this.logger.log('Starting scheduled pending transaction update');
+      
+      // Get all pending transactions
+      const pendingTransactions = await this.transactionService.getPendingTransactions();
+      
+      if (pendingTransactions.length === 0) {
+        this.logger.log('No pending transactions to update');
+        return;
+      }
+      
+      this.logger.log(`Updating ${pendingTransactions.length} pending transactions`);
+      
+      // Process in smaller batches to avoid rate limiting
+      const batches = this.chunkArray(pendingTransactions, this.BATCH_SIZE);
+      
+      let updated = 0;
+      let failed = 0;
+      
+      for (const batch of batches) {
+        const results = await Promise.allSettled(
+          batch.map(async (tx) => {
+            try {
+              if (!tx.transactionHash) return null;
+              
+              // Use retry mechanism for blockchain calls
+              return await handleRetry(
+                () => this.transactionService.updateTransactionFromBlockchain(tx.transactionHash),
+                this.MAX_RETRIES
+              );
+            } catch (error) {
+              this.logger.error(`Failed to update transaction ${tx.id}: ${error.message}`);
+              return null;
+            }
+          })
+        );
+        
+        // Count results
+        results.forEach(result => {
+          if (result.status === 'fulfilled' && result.value) {
+            updated++;
+          } else if (result.status === 'rejected') {
+            failed++;
+          }
+        });
+        
+        // Add a small delay between batches to avoid rate limiting
+        if (batches.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      
+      this.logger.log(`Updated ${updated} transactions, ${failed} failed`);
+    } catch (error) {
+      this.logger.error(`Error in scheduled transaction update: ${error.message}`);
+    }
+  }
+
+  /**
+   * Start a transaction sync job
+   */
+  async startSync(params: SyncTransactionsDto): Promise<string> {
+    const jobId = uuidv4();
+    
+    const job: SyncJob = {
+      id: jobId,
+      status: 'pending',
+      progress: 0,
+      message: 'Job created, waiting to start',
+      startTime: new Date(),
+      params,
+      results: {
+        processed: 0,
+        updated: 0,
+        failed: 0,
+        newTransactions: 0,
+      },
+    };
+    
+    // Save job to in-memory cache and persistent cache
+    this.activeJobs.set(jobId, job);
+    await this.cacheService.set(`sync_job:${jobId}`, job, this.JOB_EXPIRY);
+    
+    // Start the sync process in the background
+    this.runSyncJob(jobId).catch(error => {
+      this.logger.error(`Error in sync job ${jobId}: ${error.message}`);
+      
+      // Update job status on error
+      const failedJob = this.activeJobs.get(jobId);
+      if (failedJob) {
+        failedJob.status = 'failed';
+        failedJob.message = `Job failed: ${error.message}`;
+        failedJob.error = error.message;
+        failedJob.endTime = new Date();
+        
+        this.activeJobs.set(jobId, failedJob);
+        this.cacheService.set(`sync_job:${jobId}`, failedJob, this.JOB_EXPIRY).catch(() => {});
+      }
+    });
+    
+    return jobId;
+  }
+
+  /**
+   * Execute the sync job
+   */
+  private async runSyncJob(jobId: string): Promise<void> {
+    const job = this.activeJobs.get(jobId);
+    
+    if (!job) {
+      throw new Error(`Job ${jobId} not found`);
+    }
+    
+    try {
+      // Update job status
+      job.status = 'running';
+      job.message = 'Syncing transactions from blockchain';
+      this.activeJobs.set(jobId, job);
+      await this.cacheService.set(`sync_job:${jobId}`, job, this.JOB_EXPIRY);
+      
+      // Implement sync logic based on params
+      const { address, tokenAddress, fromBlock, toBlock } = job.params;
+      
+      // In a real implementation, you would query the blockchain for transactions
+      // This is a simplified example that updates pending transactions
+      if (address || tokenAddress) {
+        // Sync by address or token
+        let transactions;
+        
+        if (address) {
+          // Get transactions for this address
+          const [addressTxs] = await this.transactionService.getTransactionsByUserAddress(address, 1000, 0);
+          transactions = addressTxs;
+        } else if (tokenAddress) {
+          // Get transactions for this token
+          const [tokenTxs] = await this.transactionService.getTransactionsByToken(tokenAddress, 1000, 0);
+          transactions = tokenTxs;
+        }
+        
+        // Update progress
+        job.progress = 10;
+        job.message = `Found ${transactions.length} transactions to update`;
+        this.activeJobs.set(jobId, job);
+        await this.cacheService.set(`sync_job:${jobId}`, job, this.JOB_EXPIRY);
+        
+        // Filter for pending transactions
+        const pendingTransactions = transactions.filter(tx => 
+          tx.status === TransactionStatus.PENDING && tx.transactionHash
+        );
+        
+        // Update progress
+        job.progress = 20;
+        job.message = `Updating ${pendingTransactions.length} pending transactions`;
+        this.activeJobs.set(jobId, job);
+        await this.cacheService.set(`sync_job:${jobId}`, job, this.JOB_EXPIRY);
+        
+        // Process transactions in batches
+        const batches = this.chunkArray(pendingTransactions, this.BATCH_SIZE);
+        
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i];
+          
+          // Update progress
+          job.progress = 20 + Math.floor((i / batches.length) * 70);
+          job.message = `Processing batch ${i + 1}/${batches.length}`;
+          this.activeJobs.set(jobId, job);
+          await this.cacheService.set(`sync_job:${jobId}`, job, this.JOB_EXPIRY);
+          
+          const results = await Promise.allSettled(
+            batch.map(async (tx) => {
+              try {
+                job.results.processed++;
+                
+                const updated = await this.transactionService.updateTransactionFromBlockchain(tx.transactionHash);
+                
+                if (updated && updated.status !== tx.status) {
+                  job.results.updated++;
+                }
+                
+                return updated;
+              } catch (error) {
+                job.results.failed++;
+                return null;
+              }
+            })
+          );
+          
+          // Add a small delay between batches
+          if (batches.length > 1 && i < batches.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      } else if (fromBlock !== undefined) {
+        // Sync by block range - this would be implemented with actual blockchain queries
+        // In a real implementation, you would iterate through blocks and extract transactions
+        job.progress = 50;
+        job.message = `Block range sync not fully implemented yet`;
+        this.activeJobs.set(jobId, job);
+        await this.cacheService.set(`sync_job:${jobId}`, job, this.JOB_EXPIRY);
+        
+        // Simulate some work
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        job.results.processed = 0;
+        job.results.updated = 0;
+      }
+      
+      // Job completed successfully
+      job.status = 'completed';
+      job.progress = 100;
+      job.message = `Sync completed: Processed ${job.results.processed}, Updated ${job.results.updated}, Failed ${job.results.failed}`;
+      job.endTime = new Date();
+      this.activeJobs.set(jobId, job);
+      await this.cacheService.set(`sync_job:${jobId}`, job, this.JOB_EXPIRY);
+      
+      this.logger.log(`Sync job ${jobId} completed successfully`);
+    } catch (error) {
+      // Update job with error
+      job.status = 'failed';
+      job.message = `Job failed: ${error.message}`;
+      job.error = error.message;
+      job.endTime = new Date();
+      this.activeJobs.set(jobId, job);
+      await this.cacheService.set(`sync_job:${jobId}`, job, this.JOB_EXPIRY);
+      
+      this.logger.error(`Sync job ${jobId} failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get the status of a sync job
+   */
+  async getJobStatus(jobId: string): Promise<{ status: string; progress: number; message: string }> {
+    // Check in-memory cache first
+    let job = this.activeJobs.get(jobId);
+    
+    // If not found in memory, check Redis
+    if (!job) {
+      const cachedJob = await this.cacheService.get<SyncJob>(`sync_job:${jobId}`);
+      
+      if (!cachedJob) {
+        throw new Error(`Job ${jobId} not found`);
+      }
+      
+      job = cachedJob;
+      
+      // Restore to in-memory cache if it's active
+      if (job.status === 'pending' || job.status === 'running') {
+        this.activeJobs.set(jobId, job);
+      }
+    }
+    
+    return {
+      status: job.status,
+      progress: job.progress,
+      message: job.message,
+    };
+  }
+
+  /**
+   * Get detailed information about a sync job
+   */
+  async getJobDetails(jobId: string): Promise<SyncJob> {
+    // Check in-memory cache first
+    let job = this.activeJobs.get(jobId);
+    
+    // If not found in memory, check Redis
+    if (!job) {
+      const cachedJob = await this.cacheService.get<SyncJob>(`sync_job:${jobId}`);
+      
+      if (!cachedJob) {
+        throw new Error(`Job ${jobId} not found`);
+      }
+      
+      job = cachedJob;
+    }
+    
+    return job;
+  }
+
+  /**
+   * List all active sync jobs
+   */
+  async listActiveJobs(): Promise<{ id: string; status: string; progress: number; startTime: Date }[]> {
+    // Combine in-memory jobs with jobs from Redis
+    const inMemoryJobs = Array.from(this.activeJobs.values());
+    
+    // Get job IDs from Redis (pattern matching)
+    const jobKeys = await this.cacheService.getClient().keys('sync_job:*');
+    const jobIds = jobKeys.map(key => key.replace('sync_job:', ''));
+    
+    // Get jobs from Redis
+    const jobPromises = jobIds.map(async id => {
+      const cachedJob = await this.cacheService.get<SyncJob>(`sync_job:${id}`);
+      return cachedJob;
+    });
+    
+    const cachedJobs = await Promise.all(jobPromises);
+    const validCachedJobs = cachedJobs.filter(Boolean);
+    
+    // Combine and deduplicate jobs
+    const allJobs = [...inMemoryJobs];
+    
+    for (const cachedJob of validCachedJobs) {
+      if (!allJobs.some(j => j.id === cachedJob.id)) {
+        allJobs.push(cachedJob);
+      }
+    }
+    
+    // Sort by start time (newest first)
+    allJobs.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+    
+    // Map to simplified objects
+    return allJobs.map(job => ({
+      id: job.id,
+      status: job.status,
+      progress: job.progress,
+      startTime: job.startTime,
+    }));
+  }
+
+  /**
+   * Cancel a running sync job
+   */
+  async cancelJob(jobId: string): Promise<boolean> {
+    const job = this.activeJobs.get(jobId);
+    
+    if (!job) {
+      const cachedJob = await this.cacheService.get<SyncJob>(`sync_job:${jobId}`);
+      
+      if (!cachedJob) {
+        throw new Error(`Job ${jobId} not found`);
+      }
+      
+      // Can't cancel completed or already failed jobs
+      if (cachedJob.status === 'completed' || cachedJob.status === 'failed') {
+        return false;
+      }
+      
+      // For jobs only in Redis but not in memory, just mark as failed
+      cachedJob.status = 'failed';
+      cachedJob.message = 'Job cancelled by user';
+      cachedJob.endTime = new Date();
+      await this.cacheService.set(`sync_job:${jobId}`, cachedJob, this.JOB_EXPIRY);
+      return true;
+    }
+    
+    // For jobs in memory, mark as failed
+    if (job.status === 'completed' || job.status === 'failed') {
+      return false;
+    }
+    
+    job.status = 'failed';
+    job.message = 'Job cancelled by user';
+    job.endTime = new Date();
+    this.activeJobs.set(jobId, job);
+    await this.cacheService.set(`sync_job:${jobId}`, job, this.JOB_EXPIRY);
+    
+    return true;
+  }
+
+  /**
+   * Split array into chunks
+   */
+  private chunkArray<T>(array: T[], chunkSize: number): T[][] {
+    const chunks = [];
+    for (let i = 0; i < array.length; i += chunkSize) {
+      chunks.push(array.slice(i, i + chunkSize));
+    }
+    return chunks;
+  }
+}

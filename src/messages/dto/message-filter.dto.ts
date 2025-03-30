@@ -1,4 +1,4 @@
-import { IsOptional, IsDate, IsEnum, IsString } from 'class-validator';
+import { IsOptional, IsDate, IsEnum, IsString, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MessageType } from '../entities/message.entity';
 
@@ -26,4 +26,8 @@ export class MessageFilterDto {
 
   @IsOptional()
   limit?: number = 50;
+
+  @IsOptional()
+  @IsBoolean()
+  isRead?: boolean; // New filter for read status
 }
