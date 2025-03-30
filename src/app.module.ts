@@ -1,3 +1,4 @@
+import { CommonModule } from './common/common.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './users/entities/user.entity';
@@ -15,9 +16,10 @@ import { ConversationModule } from './conversation/conversation.module';
 import { LoggingModule } from './logging/logging.module';
 import { ReadReceiptModule } from './read-receipt/read-receipt.module';
 
+
 @Module({
   imports: [
-    ConsoleModule,
+    CommonModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
