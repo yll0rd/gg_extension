@@ -82,17 +82,19 @@ export class NotificationRepository {
   }
 
   async getCount(userId: string): Promise<INotificationCount> {
-    // Get total count
-    const total = await this.repository.count({
-      where: { userId, isDismissed: false },
-    });
+    const result = await this.repository
+      .createQueryBuilder('notification')
+      .select([
+        'COUNT(*) AS total',
+        'SUM(CASE WHEN isRead = false THEN 1 ELSE 0 END) AS unread',
+      ])
+      .where(
+        'notification.userId = :userId AND notification.isDismissed = false',
+        { userId },
+      )
+      .getRawOne();
 
-    // Get unread count
-    const unread = await this.repository.count({
-      where: { userId, isRead: false, isDismissed: false },
-    });
-
-    return { total, unread };
+    return { total: result.total, unread: result.unread };
   }
 
   async update(id: string, data: Partial<Notification>): Promise<Notification> {
@@ -143,16 +145,26 @@ export class NotificationRepository {
   ): Promise<[Notification[], number]> {
     const queryBuilder = this.repository.createQueryBuilder('notification');
 
+    // queryBuilder
+    //   .where('notification.userId = :userId', { userId })
+    //   .andWhere(
+    //     new Brackets((qb) => {
+    //       qb.where('notification.title ILIKE :searchTerm', {
+    //         searchTerm: `%${searchTerm}%`,
+    //       }).orWhere('notification.content ILIKE :searchTerm', {
+    //         searchTerm: `%${searchTerm}%`,
+    //       });
+    //     }),
+    //   )
+    //   .orderBy('notification.createdAt', 'DESC')
+    //   .take(limit)
+    //   .skip(offset);
+
     queryBuilder
       .where('notification.userId = :userId', { userId })
       .andWhere(
-        new Brackets((qb) => {
-          qb.where('notification.title ILIKE :searchTerm', {
-            searchTerm: `%${searchTerm}%`,
-          }).orWhere('notification.content ILIKE :searchTerm', {
-            searchTerm: `%${searchTerm}%`,
-          });
-        }),
+        "to_tsvector('english', notification.title || ' ' || notification.content) @@ plainto_tsquery(:searchTerm)",
+        { searchTerm },
       )
       .orderBy('notification.createdAt', 'DESC')
       .take(limit)

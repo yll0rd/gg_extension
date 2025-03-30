@@ -14,7 +14,10 @@ import { CacheService } from '../../common/services/cache.service';
 import { TokenRepository } from '../repositories/token.repository';
 import { Network } from '../types/token.types';
 import * as starknet from 'starknet';
-import { ExponentialBackoff, handleRetry } from '../../common/utils/retry.utils';
+import {
+  ExponentialBackoff,
+  handleRetry,
+} from '../../common/utils/retry.utils';
 
 @Injectable()
 export class TokenBalanceService implements OnModuleInit {
@@ -23,7 +26,7 @@ export class TokenBalanceService implements OnModuleInit {
   private readonly CACHE_PREFIX = 'token_balance:';
   private readonly MAX_RETRIES = 3;
   private readonly BATCH_SIZE = 50; // Number of balances to update in one batch
-  
+
   constructor(
     private readonly starknetService: StarknetService,
     private readonly configService: ConfigService,
@@ -43,7 +46,9 @@ export class TokenBalanceService implements OnModuleInit {
       await this.starknetService.connect();
       this.logger.log('TokenBalanceService initialized successfully');
     } catch (error) {
-      this.logger.error(`Failed to initialize TokenBalanceService: ${error.message}`);
+      this.logger.error(
+        `Failed to initialize TokenBalanceService: ${error.message}`,
+      );
     }
   }
 
@@ -54,36 +59,41 @@ export class TokenBalanceService implements OnModuleInit {
   async getTokenBalance(
     userAddress: string,
     tokenAddress: string,
-    forceRefresh = false
+    forceRefresh = false,
   ): Promise<TokenBalanceDto> {
     try {
       const cacheKey = `${this.CACHE_PREFIX}${userAddress}:${tokenAddress}`;
-      
+
       // Return from cache if available and not forcing a refresh
       if (!forceRefresh) {
-        const cachedBalance = await this.cacheService.get<TokenBalanceDto>(cacheKey);
+        const cachedBalance =
+          await this.cacheService.get<TokenBalanceDto>(cacheKey);
         if (cachedBalance) {
-          this.logger.debug(`Returning cached balance for ${userAddress} / ${tokenAddress}`);
+          this.logger.debug(
+            `Returning cached balance for ${userAddress} / ${tokenAddress}`,
+          );
           return cachedBalance;
         }
       }
-      
+
       // Fetch balance from blockchain
-      this.logger.debug(`Fetching balance from blockchain for ${userAddress} / ${tokenAddress}`);
-      
+      this.logger.debug(
+        `Fetching balance from blockchain for ${userAddress} / ${tokenAddress}`,
+      );
+
       // Get token info first (to determine proper balance format and token type)
       const token = await this.getTokenInfo(tokenAddress);
-      
+
       // Fetch balance with retry mechanism
       const balance = await handleRetry(
         () => this.starknetService.getTokenBalance(tokenAddress, userAddress),
         this.MAX_RETRIES,
-        new ExponentialBackoff(1000, 2, 10000)
+        new ExponentialBackoff(1000, 2, 10000),
       );
-      
+
       // Format balance based on token decimals
       const balanceFormatted = this.formatTokenBalance(balance, token.decimals);
-      
+
       // Create response
       const balanceDto: TokenBalanceDto = {
         tokenAddress,
@@ -94,18 +104,26 @@ export class TokenBalanceService implements OnModuleInit {
         tokenSymbol: token.symbol,
         tokenDecimals: token.decimals,
       };
-      
+
       // Save to cache
       await this.cacheService.set(cacheKey, balanceDto, this.CACHE_TTL);
-      
+
       // Save to database (async, don't wait for it)
-      this.saveBalanceToDatabase(userAddress, tokenAddress, balance, token).catch(err => {
+      this.saveBalanceToDatabase(
+        userAddress,
+        tokenAddress,
+        balance,
+        token,
+      ).catch((err) => {
         this.logger.error(`Failed to save balance to database: ${err.message}`);
       });
-      
+
       return balanceDto;
     } catch (error) {
-      this.logger.error(`Error getting token balance: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error getting token balance: ${error.message}`,
+        error.stack,
+      );
       throw new Error(`Failed to get token balance: ${error.message}`);
     }
   }
@@ -115,15 +133,17 @@ export class TokenBalanceService implements OnModuleInit {
    */
   async getMultipleTokenBalances(
     userAddress: string,
-    tokenAddresses: string[]
+    tokenAddresses: string[],
   ): Promise<TokenBalanceDto[]> {
-    const promises = tokenAddresses.map(tokenAddress => 
-      this.getTokenBalance(userAddress, tokenAddress).catch(error => {
-        this.logger.error(`Error getting balance for ${tokenAddress}: ${error.message}`);
+    const promises = tokenAddresses.map((tokenAddress) =>
+      this.getTokenBalance(userAddress, tokenAddress).catch((error) => {
+        this.logger.error(
+          `Error getting balance for ${tokenAddress}: ${error.message}`,
+        );
         return null;
-      })
+      }),
     );
-    
+
     const results = await Promise.all(promises);
     return results.filter(Boolean); // Filter out failed requests
   }
@@ -136,21 +156,23 @@ export class TokenBalanceService implements OnModuleInit {
       // Check cache first
       const cacheKey = `token_info:${tokenAddress}`;
       const cachedInfo = await this.cacheService.get<IToken>(cacheKey);
-      
+
       if (cachedInfo) {
         return cachedInfo;
       }
-      
+
       // Fetch from blockchain
       const tokenInfo = await this.starknetService.getTokenInfo(tokenAddress);
-      
+
       // Cache for longer period (token info rarely changes)
       await this.cacheService.set(cacheKey, tokenInfo, 24 * 60 * 60); // 24 hours
-      
+
       return tokenInfo;
     } catch (error) {
       // Return a default token info if failed to fetch
-      this.logger.warn(`Failed to get token info for ${tokenAddress}: ${error.message}`);
+      this.logger.warn(
+        `Failed to get token info for ${tokenAddress}: ${error.message}`,
+      );
       return {
         address: tokenAddress,
         name: 'Unknown Token',
@@ -159,7 +181,7 @@ export class TokenBalanceService implements OnModuleInit {
         network: this.starknetService.network,
         isERC20: true,
         isERC721: false,
-        isERC1155: false
+        isERC1155: false,
       };
     }
   }
@@ -170,24 +192,24 @@ export class TokenBalanceService implements OnModuleInit {
   private formatTokenBalance(balance: string, decimals: number): string {
     try {
       if (!balance) return '0';
-      
+
       const balanceBN = BigInt(balance);
       const divisor = BigInt(10) ** BigInt(decimals);
-      
+
       const wholePart = balanceBN / divisor;
       const fractionalPart = balanceBN % divisor;
-      
+
       // Convert fractional part to string with leading zeros
       let fractionalStr = fractionalPart.toString();
       fractionalStr = fractionalStr.padStart(decimals, '0');
-      
+
       // Remove trailing zeros
       fractionalStr = fractionalStr.replace(/0+$/, '');
-      
+
       if (fractionalStr === '') {
         return wholePart.toString();
       }
-      
+
       return `${wholePart}.${fractionalStr}`;
     } catch (error) {
       this.logger.error(`Error formatting balance: ${error.message}`);
@@ -202,7 +224,7 @@ export class TokenBalanceService implements OnModuleInit {
     userAddress: string,
     tokenAddress: string,
     balance: string,
-    token: IToken
+    token: IToken,
   ): Promise<void> {
     try {
       // Get or create user token entry
@@ -210,9 +232,9 @@ export class TokenBalanceService implements OnModuleInit {
         where: {
           userAddress,
           tokenAddress,
-        }
+        },
       });
-      
+
       if (!userToken) {
         userToken = this.userTokenRepository.create({
           userAddress,
@@ -225,10 +247,10 @@ export class TokenBalanceService implements OnModuleInit {
           network: token.network as Network,
           lastUpdated: new Date(),
         });
-        
+
         await this.userTokenRepository.save(userToken);
       }
-      
+
       // Create a new balance entry
       const tokenBalance = this.tokenBalanceRepository.create({
         userAddress,
@@ -237,9 +259,9 @@ export class TokenBalanceService implements OnModuleInit {
         blockTimestamp: new Date(),
         userTokenId: userToken.id,
       });
-      
+
       await this.tokenBalanceRepository.save(tokenBalance);
-      
+
       // Update latest balance in user token
       await this.userTokenRepository.update(userToken.id, {
         latestBalance: balance,
@@ -257,7 +279,7 @@ export class TokenBalanceService implements OnModuleInit {
   async getHistoricalBalances(
     userAddress: string,
     tokenAddress: string,
-    limit = 30
+    limit = 30,
   ): Promise<TokenBalanceEntity[]> {
     return this.tokenBalanceRepository.find({
       where: {
@@ -288,7 +310,10 @@ export class TokenBalanceService implements OnModuleInit {
   /**
    * Clear cache for a specific balance
    */
-  async clearBalanceCache(userAddress: string, tokenAddress: string): Promise<void> {
+  async clearBalanceCache(
+    userAddress: string,
+    tokenAddress: string,
+  ): Promise<void> {
     const cacheKey = `${this.CACHE_PREFIX}${userAddress}:${tokenAddress}`;
     await this.cacheService.del(cacheKey);
   }
@@ -308,7 +333,7 @@ export class TokenBalanceService implements OnModuleInit {
   async updateTokenBalances() {
     try {
       this.logger.log('Starting scheduled token balance update');
-      
+
       // Get tokens that need updating (oldest first)
       const tokensToUpdate = await this.userTokenRepository.find({
         order: {
@@ -316,17 +341,17 @@ export class TokenBalanceService implements OnModuleInit {
         },
         take: this.BATCH_SIZE,
       });
-      
+
       if (tokensToUpdate.length === 0) {
         this.logger.log('No tokens to update');
         return;
       }
-      
+
       this.logger.log(`Updating balances for ${tokensToUpdate.length} tokens`);
-      
+
       // Process in smaller chunks to avoid rate limiting
       const chunks = this.chunkArray(tokensToUpdate, 10);
-      
+
       for (const chunk of chunks) {
         await Promise.all(
           chunk.map(async (userToken) => {
@@ -334,23 +359,25 @@ export class TokenBalanceService implements OnModuleInit {
               await this.getTokenBalance(
                 userToken.userAddress,
                 userToken.tokenAddress,
-                true // Force refresh
+                true, // Force refresh
               );
             } catch (error) {
               this.logger.error(
-                `Failed to update balance for ${userToken.userAddress}/${userToken.tokenAddress}: ${error.message}`
+                `Failed to update balance for ${userToken.userAddress}/${userToken.tokenAddress}: ${error.message}`,
               );
             }
-          })
+          }),
         );
-        
+
         // Wait a bit between chunks to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
-      
+
       this.logger.log('Scheduled token balance update completed');
     } catch (error) {
-      this.logger.error(`Error in scheduled token balance update: ${error.message}`);
+      this.logger.error(
+        `Error in scheduled token balance update: ${error.message}`,
+      );
     }
   }
 

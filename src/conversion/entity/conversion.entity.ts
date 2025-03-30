@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+  Index,
+} from 'typeorm';
 import { ConversationType } from '../emuns/conversionTypes';
 import { ConversationParticipant } from 'src/conversion/entity/conversationParticipant';
 
@@ -14,11 +22,16 @@ export class Conversation {
   title?: string;
 
   @CreateDateColumn()
+  @Index()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToMany(() => ConversationParticipant, (participant) => participant.conversation, { cascade: true })
+  @OneToMany(
+    () => ConversationParticipant,
+    (participant) => participant.conversation,
+    { cascade: true },
+  )
   participants: ConversationParticipant[];
 }

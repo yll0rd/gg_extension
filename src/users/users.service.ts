@@ -21,18 +21,21 @@ export class UsersService {
   constructor(private readonly usersRepository: UsersRepository) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    const existingUser = await this.usersRepository.findOneByEmail(
-      createUserDto.email,
-    );
-    if (existingUser) {
-      throw new ConflictException('Email already in use');
-    }
+    const existingUser = await this.usersRepository.findOne({
+      where: [
+        { email: createUserDto.email },
+        { username: createUserDto.username },
+      ],
+      select: ['id', 'email', 'username'], // Select only needed fields
+    });
 
-    const existingUsername = await this.usersRepository.findOneByUsername(
-      createUserDto.username,
-    );
-    if (existingUsername) {
-      throw new ConflictException('Username already taken');
+    if (existingUser) {
+      if (existingUser.email === createUserDto.email) {
+        throw new ConflictException('Email already in use');
+      }
+      if (existingUser.username === createUserDto.username) {
+        throw new ConflictException('Username already taken');
+      }
     }
 
     const user = await this.usersRepository.create(createUserDto);

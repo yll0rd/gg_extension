@@ -35,6 +35,7 @@ export class MessagesService {
     return this.mapToResponseDto(savedMessage);
   }
 
+  //The old method didn't make use of indexing at all
   async findMessages(
     conversationId: string,
     filterDto: MessageFilterDto,
@@ -48,34 +49,46 @@ export class MessagesService {
       limit = 50,
       isRead,
     } = filterDto;
+    const queryBuilder = this.messageRepository.createQueryBuilder('message');
 
-    const where: FindOptionsWhere<Message> = { conversationId };
+    queryBuilder.where('message.conversationId = :conversationId', {
+      conversationId,
+    });
 
     if (startDate && endDate) {
-      where.timestamp = Between(startDate, endDate);
+      queryBuilder.andWhere(
+        'message.timestamp BETWEEN :startDate AND :endDate',
+        { startDate, endDate },
+      );
     }
 
     if (type) {
-      where.type = type;
+      queryBuilder.andWhere('message.type = :type', { type });
     }
 
     if (searchQuery) {
-      where.content = Like(`%${searchQuery}%`);
+      queryBuilder.andWhere('message.content ILIKE :searchQuery', {
+        searchQuery: `%${searchQuery}%`,
+      });
     }
 
     if (isRead !== undefined) {
-      where.readByUsers = isRead ? Not([]) : In([[]]);
+      queryBuilder.andWhere(
+        isRead
+          ? 'array_length(message.readByUsers, 1) > 0'
+          : 'array_length(message.readByUsers, 1) IS NULL',
+      );
     }
 
-    const [messages, total] = await this.messageRepository.findAndCount({
-      where,
-      order: { timestamp: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    queryBuilder
+      .orderBy('message.timestamp', 'DESC')
+      .take(limit)
+      .skip((page - 1) * limit);
+
+    const [messages, total] = await queryBuilder.getManyAndCount();
 
     return {
-      messages: messages.map((message) => this.mapToResponseDto(message)),
+      messages: messages.map((msg) => this.mapToResponseDto(msg)),
       total,
     };
   }
@@ -101,7 +114,10 @@ export class MessagesService {
       throw new NotFoundException(`Message with ID ${id} not found`);
     }
 
-    const updatedMessage = this.messageRepository.merge(message, updateMessageDto);
+    const updatedMessage = this.messageRepository.merge(
+      message,
+      updateMessageDto,
+    );
     const savedMessage = await this.messageRepository.save(updatedMessage);
 
     return this.mapToResponseDto(savedMessage);
@@ -115,25 +131,24 @@ export class MessagesService {
     }
   }
 
-  async markMessageAsRead(markReadDto: MarkReadDto): Promise<MessageResponseDto> {
+  //Unnecessary database hits fixed here
+  async markMessageAsRead(
+    markReadDto: MarkReadDto,
+  ): Promise<MessageResponseDto> {
     const { messageId, userId } = markReadDto;
 
-    const message = await this.messageRepository.findOne({ where: { id: messageId } });
-
-    if (!message) {
-      throw new NotFoundException('Message not found');
-    }
-
-    if (!message.readByUsers) {
-      message.readByUsers = [];
-    }
+    const message = await this.messageRepository.findOne({
+      where: { id: messageId },
+    });
+    if (!message) throw new NotFoundException('Message not found');
 
     if (!message.readByUsers.includes(userId)) {
-      message.readByUsers.push(userId);
-      await this.messageRepository.save(message);
+      await this.messageRepository.update(messageId, {
+        readByUsers: [...message.readByUsers, userId],
+      });
     }
 
-    return this.mapToResponseDto(message);
+    return this.findMessageById(messageId);
   }
 
   private mapToResponseDto(message: Message): MessageResponseDto {
