@@ -1,0 +1,145 @@
+// src/token-transactions/repositories/token-transaction.repository.ts
+import { EntityRepository, Repository, SelectQueryBuilder } from 'typeorm';
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { TokenTransaction } from '../entities/token-transaction.entity';
+import { TokenTransactionFilterDto } from '../dto/token-transaction-filter.dto';
+import { TokenType } from '../enums/token-type.enum';
+import { TransactionStatus } from '../enums/transaction-status.enum';
+
+@Injectable()
+export class TokenTransactionRepository {
+  constructor(
+    @InjectRepository(TokenTransaction)
+    private readonly repository: Repository<TokenTransaction>,
+  ) {}
+
+  /**
+   * Find a transaction by ID
+   */
+  async findById(id: string): Promise<TokenTransaction> {
+    return this.repository.findOne({
+      where: { id },
+      relations: ['sender', 'receiver'],
+    });
+  }
+
+  /**
+   * Find a transaction by transaction hash
+   */
+  async findByTxHash(txHash: string): Promise<TokenTransaction> {
+    return this.repository.findOne({
+      where: { txHash },
+      relations: ['sender', 'receiver'],
+    });
+  }
+
+  /**
+   * Find transactions with filtering options
+   */
+  async findTransactions(
+    filter: TokenTransactionFilterDto,
+    limit = 10,
+    offset = 0,
+  ): Promise<[TokenTransaction[], number]> {
+    const query = this.createFilteredQuery(filter);
+    
+    return query
+      .take(limit)
+      .skip(offset)
+      .orderBy('tokenTransaction.createdAt', 'DESC')
+      .getManyAndCount();
+  }
+
+  /**
+   * Create filtered query builder for transactions
+   */
+  private createFilteredQuery(filter: TokenTransactionFilterDto): SelectQueryBuilder<TokenTransaction> {
+    const query = this.repository.createQueryBuilder('tokenTransaction')
+      .leftJoinAndSelect('tokenTransaction.sender', 'sender')
+      .leftJoinAndSelect('tokenTransaction.receiver', 'receiver');
+
+    if (filter.senderId) {
+      query.andWhere('tokenTransaction.senderId = :senderId', { senderId: filter.senderId });
+    }
+
+    if (filter.receiverId) {
+      query.andWhere('tokenTransaction.receiverId = :receiverId', { receiverId: filter.receiverId });
+    }
+
+    if (filter.tokenType) {
+      query.andWhere('tokenTransaction.tokenType = :tokenType', { tokenType: filter.tokenType });
+    }
+
+    if (filter.tokenId) {
+      query.andWhere('tokenTransaction.tokenId = :tokenId', { tokenId: filter.tokenId });
+    }
+
+    if (filter.tokenAddress) {
+      query.andWhere('tokenTransaction.tokenAddress = :tokenAddress', { tokenAddress: filter.tokenAddress });
+    }
+
+    if (filter.status) {
+      query.andWhere('tokenTransaction.status = :status', { status: filter.status });
+    }
+
+    if (filter.blockchain) {
+      query.andWhere('tokenTransaction.blockchain = :blockchain', { blockchain: filter.blockchain });
+    }
+
+    if (filter.fromDate) {
+      query.andWhere('tokenTransaction.createdAt >= :fromDate', { fromDate: filter.fromDate });
+    }
+
+    if (filter.toDate) {
+      query.andWhere('tokenTransaction.createdAt <= :toDate', { toDate: filter.toDate });
+    }
+
+    return query;
+  }
+
+  /**
+   * Get user token balance (for ERC20 tokens)
+   */
+  async getUserTokenBalance(
+    userId: string,
+    tokenAddress: string,
+  ): Promise<number> {
+    // Incoming transactions (received tokens)
+    const receivedResult = await this.repository
+      .createQueryBuilder('tx')
+      .select('SUM(tx.amount)', 'total')
+      .where('tx.receiverId = :userId', { userId })
+      .andWhere('tx.tokenAddress = :tokenAddress', { tokenAddress })
+      .andWhere('tx.tokenType = :tokenType', { tokenType: TokenType.ERC20 })
+      .andWhere('tx.status = :status', { status: TransactionStatus.CONFIRMED })
+      .getRawOne();
+
+    // Outgoing transactions (sent tokens)
+    const sentResult = await this.repository
+      .createQueryBuilder('tx')
+      .select('SUM(tx.amount)', 'total')
+      .where('tx.senderId = :userId', { userId })
+      .andWhere('tx.tokenAddress = :tokenAddress', { tokenAddress })
+      .andWhere('tx.tokenType = :tokenType', { tokenType: TokenType.ERC20 })
+      .andWhere('tx.status = :status', { status: TransactionStatus.CONFIRMED })
+      .getRawOne();
+
+    const received = parseFloat(receivedResult.total || '0');
+    const sent = parseFloat(sentResult.total || '0');
+
+    return received - sent;
+  }
+
+  /**
+   * Check if user owns an NFT (ERC721)
+   */
+  async userOwnsNFT(
+    userId: string,
+    tokenAddress: string,
+    tokenId: string,
+  ): Promise<boolean> {
+    // Get all transfers of this NFT
+    const transactions = await this.repository
+      .createQueryBuilder('tx')
+      .where
