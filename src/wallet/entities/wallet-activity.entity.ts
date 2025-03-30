@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, Index } from 'typeorm';
 import { Wallet } from './wallet.entity';
 
 @Entity()
@@ -7,6 +7,7 @@ export class WalletActivity {
   id: string;
 
   @ManyToOne(() => Wallet, (wallet) => wallet.activities, { onDelete: 'CASCADE' })
+  @Index({ unique: true })
   wallet: Wallet;
 
   @Column()

@@ -6,11 +6,11 @@ import {
   UpdateDateColumn,
   BeforeInsert,
   BeforeUpdate,
+  Index,
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { OneToMany } from 'typeorm';
 import { Wallet } from 'src/wallet/entities/wallet.entity';
-
 
 @Entity()
 export class User {
@@ -20,9 +20,11 @@ export class User {
   @OneToMany(() => Wallet, (wallet) => wallet.user)
   wallets: Wallet[];
 
+  @Index()
   @Column({ unique: true })
   username: string;
 
+  @Index()
   @Column({ unique: true })
   email: string;
 
@@ -42,6 +44,7 @@ export class User {
   bio: string;
 
   @CreateDateColumn()
+  @Index()
   createdAt: Date;
 
   @UpdateDateColumn()

@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Message } from './message.entity';
 
@@ -14,12 +15,15 @@ export class MessageReadReceipt {
   id: string;
 
   @Column()
+  @Index()
   messageId: string;
 
   @Column()
+  @Index()
   userId: string;
 
   @CreateDateColumn()
+  @Index()
   readAt: Date;
 
   @ManyToOne(() => Message)
